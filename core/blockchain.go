@@ -23,7 +23,6 @@ import (
 	"fmt"
 	"io"
 	"math/big"
-	mrand "math/rand"
 	"sort"
 	"sync"
 	"sync/atomic"
@@ -1527,11 +1526,12 @@ func (bc *BlockChain) writeBlockWithState(block *types.Block, receipts []*types.
 		} else if block.NumberU64() == currentBlock.NumberU64() {
 			var currentPreserve, blockPreserve bool
 			if bc.shouldPreserve != nil {
+				// shouldPreserve is always false for Clique ...
 				currentPreserve, blockPreserve = bc.shouldPreserve(currentBlock), bc.shouldPreserve(block)
 			}
+			// ... so the hash compare here will always be made.
 			reorg = !currentPreserve && (blockPreserve ||
-				bytes.Compare(block.Hash().Bytes(), currentBlock.Hash().Bytes()) < 0 ||
-				mrand.Float64() < 0.5)
+				bytes.Compare(block.Hash().Bytes(), currentBlock.Hash().Bytes()) < 0)
 		}
 	}
 	if reorg {
