@@ -18,6 +18,7 @@
 package core
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -1528,7 +1529,9 @@ func (bc *BlockChain) writeBlockWithState(block *types.Block, receipts []*types.
 			if bc.shouldPreserve != nil {
 				currentPreserve, blockPreserve = bc.shouldPreserve(currentBlock), bc.shouldPreserve(block)
 			}
-			reorg = !currentPreserve && (blockPreserve || mrand.Float64() < 0.5)
+			reorg = !currentPreserve && (blockPreserve ||
+				bytes.Compare(block.Hash().Bytes(), currentBlock.Hash().Bytes()) < 0 ||
+				mrand.Float64() < 0.5)
 		}
 	}
 	if reorg {
