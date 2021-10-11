@@ -57,6 +57,15 @@ func (ap *testerAccountPool) checkpoint(header *types.Header, signers []string) 
 	}
 }
 
+func (ap *testerAccountPool) name(address common.Address) string {
+	for k, v := range ap.accounts {
+		if crypto.PubkeyToAddress(v.PublicKey) == address {
+			return k
+		}
+	}
+	return ""
+}
+
 // address retrieves the Ethereum address of a tester account by label, creating
 // a new account if no previous one exists yet.
 func (ap *testerAccountPool) address(account string) common.Address {
