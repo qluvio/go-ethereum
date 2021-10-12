@@ -20,9 +20,11 @@ package clique
 import (
 	"bytes"
 	"errors"
+	"github.com/holiman/uint256"
 	"io"
 	"math/big"
 	"math/rand"
+	"strings"
 	"sync"
 	"time"
 
@@ -671,6 +673,22 @@ func CalcDifficulty(snap *Snapshot, signer common.Address) *big.Int {
 	return new(big.Int).Set(diffNoTurn)
 }
 
+// hashToUint256 converts a hash to a uint256 integer.
+func hashToUint256(h common.Hash) (*uint256.Int, error) {
+	hex := h.Hex()
+
+	// The library used will error if the hex value has any leading 0's,
+	// so those will be trimmed.
+	trimPre := ""
+	if strings.HasPrefix(hex, "0x") {
+		trimPre = strings.TrimPrefix(hex, "0x")
+	} else if strings.HasPrefix(hex, "0X") {
+		trimPre = strings.TrimPrefix(hex, "0X")
+	}
+	trimPre = strings.TrimLeft(trimPre, "0")
+	return uint256.FromHex("0x" + trimPre)
+}
+
 // SealHash returns the hash of a block prior to it being sealed.
 func (c *Clique) SealHash(header *types.Header) common.Hash {
 	return SealHash(header)
@@ -735,3 +753,81 @@ func encodeSigHeader(w io.Writer, header *types.Header) {
 		panic("can't encode: " + err.Error())
 	}
 }
+
+func (c *Clique) Eip3436Rule3rule4(chain consensus.ChainReader, current, proposed *types.Header) (acceptProposed bool, err error) {
+	want, err := c.Eip3436Rule3(chain, current, proposed)
+	if err != nil {
+		return false, err
+	}
+	if want == (common.Address{}) {
+		// Rule 3 was a tie.
+		// Use Rule 4.
+		return c.Eip3436Rule4(current, proposed)
+	}
+	// Rule 3 was decisive.
+	currentAuthor, err := c.Author(current)
+	if err != nil {
+		return false, err
+	}
+	if want == currentAuthor {
+		return false, nil
+	}
+	return true, nil
+}
+
+// Eip3436Rule3 selects the block (header) whose validator had the least recent in-turn block assignment.
+// If the compared signer addresses yield an equivalent value  this is considered non-definitive and
+// an empty value is returned.
+func (c *Clique) Eip3436Rule3(chain consensus.ChainReader, current, proposed *types.Header) (preferredAuthor common.Address, err error) {
+	snap, err := c.snapshot(chain, current.Number.Uint64()-1, current.ParentHash, nil)
+	if err != nil {
+		return common.Address{}, err
+	}
+	a, err := c.Author(current)
+	if err != nil {
+		return common.Address{}, err
+	}
+	b, err := c.Author(proposed)
+	if err != nil {
+		return common.Address{}, err
+	}
+
+	sortedSigners := snap.signers()
+	validatorCount := uint64(len(sortedSigners))
+
+	var validatorIndexA, validatorIndexB uint64
+	for i := uint64(0); i < validatorCount; i++ {
+		if sortedSigners[i] == a {
+			validatorIndexA = i
+		} else if sortedSigners[i] == b {
+			validatorIndexB = i
+		}
+	}
+
+	evalA := (current.Number.Uint64() - validatorIndexA) % validatorCount
+	evalB := (current.Number.Uint64() - validatorIndexB) % validatorCount
+
+	if evalA > evalB {
+		return a, nil
+	}
+	if evalB > evalA {
+		return b, nil
+	}
+	return common.Address{}, nil
+}
+
+// Eip3436Rule4 selects the block (header) with the lowest hash when converted to an unsigned 256 bit integer.
+func (c *Clique) Eip3436Rule4(current, proposed *types.Header) (acceptProposed bool, err error) {
+	currentN, err := hashToUint256(current.Hash())
+	if err != nil {
+		return false, err
+	}
+	proposedN, err := hashToUint256(proposed.Hash())
+	if err != nil {
+		return false, err
+	}
+	// Boolean should be defined truthy where proposed hash is less than current.
+	return proposedN.Lt(currentN), nil
+}
+
+
