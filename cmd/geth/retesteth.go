@@ -196,6 +196,10 @@ type NoRewardEngine struct {
 	rewardsOn bool
 }
 
+func (e *NoRewardEngine) ElectCanonical(chain consensus.ChainReader, currentTD, proposedTD *big.Int, current, proposed *types.Header) (bool, error) {
+	panic("implement me")
+}
+
 func (e *NoRewardEngine) Author(header *types.Header) (common.Address, error) {
 	return e.inner.Author(header)
 }

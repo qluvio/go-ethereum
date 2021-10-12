@@ -20,6 +20,7 @@ package ethash
 import (
 	"errors"
 	"fmt"
+	"github.com/ethereum/go-ethereum/core/types"
 	"math"
 	"math/big"
 	"math/rand"
@@ -427,6 +428,10 @@ type Ethash struct {
 
 	lock      sync.Mutex // Ensures thread safety for the in-memory caches and mining fields
 	closeOnce sync.Once  // Ensures exit channel will not be closed twice.
+}
+
+func (ethash *Ethash) ElectCanonical(chain consensus.ChainReader, currentTD, proposedTD *big.Int, current, proposed *types.Header) (bool, error) {
+	panic("implement me")
 }
 
 // New creates a full sized ethash PoW scheme and starts a background thread for

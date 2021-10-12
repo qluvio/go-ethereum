@@ -755,6 +755,44 @@ func encodeSigHeader(w io.Writer, header *types.Header) {
 	}
 }
 
+// IsReorg decides if a proposed block (header) should be preferred over the current header.
+// nb. blockPreserve is not used.
+func (c *Clique) ElectCanonical(chain consensus.ChainReader, currentTD, proposedTD *big.Int, current, proposed *types.Header) (preferProposed bool, err error) {
+	// 1. Greater TD
+	if currentTD.Cmp(proposedTD) > 0 {
+		return false, nil
+	}
+	// Proposed (external) total difficulty is equal to or equivalent local.
+	if proposedTD.Cmp(currentTD) > 0 {
+		return true, nil
+	}
+
+	// Blocks have same total difficulty.
+
+	// 2. Lesser block height
+	if current.Number.Cmp(proposed.Number) < 0 {
+		return false, nil
+	}
+	if proposed.Number.Cmp(current.Number) < 0 {
+		return true, nil
+	}
+
+	// Blocks have same number.
+
+	// EIP3436 says that the status quo preference algorithm is limited
+	// to greater net difficulty, but that isn't the case (at least in practice,
+	// withstanding whatever the EIP-255 initial Clique spec says).
+	// In practice, the status quo is/was that the shorter segment is
+	// preferred.
+	if c.config.EIP3436Transition == nil || c.config.EIP3436Transition.Cmp(current.Number) > 0 {
+		return false, nil
+	}
+
+	// 3. Signer index
+	// 4. Block hash uint256
+	return c.Eip3436Rule3rule4(chain, current, proposed)
+}
+
 func (c *Clique) Eip3436Rule3rule4(chain consensus.ChainReader, current, proposed *types.Header) (acceptProposed bool, err error) {
 	want, err := c.Eip3436Rule3(chain, current, proposed)
 	if err != nil {
