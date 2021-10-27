@@ -207,6 +207,10 @@ func New(config *params.CliqueConfig, db ethdb.Database) *Clique {
 	}
 }
 
+func (c *Clique) Config() *params.CliqueConfig {
+	return c.config
+}
+
 // Author implements consensus.Engine, returning the Ethereum address recovered
 // from the signature in the header's extra-data section.
 func (c *Clique) Author(header *types.Header) (common.Address, error) {
@@ -800,6 +804,7 @@ func (c *Clique) Eip3436Rule3rule4(chain consensus.ChainReader, current, propose
 	if want == (common.Address{}) {
 		// Rule 3 was a tie.
 		// Use Rule 4.
+		log.Info("CLIQUE: rule 3 was tie - using rule 4 (hash tie-breaker)")
 		return c.Eip3436Rule4(current, proposed)
 	}
 	// Rule 3 was decisive.
@@ -807,10 +812,9 @@ func (c *Clique) Eip3436Rule3rule4(chain consensus.ChainReader, current, propose
 	if err != nil {
 		return false, err
 	}
-	if want == currentAuthor {
-		return false, nil
-	}
-	return true, nil
+	acceptProposed = want != currentAuthor
+	log.Info("CLIQUE: used rule 3 to resolve proposed chain", "accepted proposed", acceptProposed)
+	return
 }
 
 // Eip3436Rule3 selects the block (header) whose validator had the least recent in-turn block assignment.
