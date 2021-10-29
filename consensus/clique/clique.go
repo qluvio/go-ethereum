@@ -627,10 +627,12 @@ func (c *Clique) Seal(chain consensus.ChainReader, block *types.Block, results c
 	delay := time.Unix(int64(header.Time), 0).Sub(time.Now()) // nolint: gosimple
 	if header.Difficulty.Cmp(diffNoTurn) == 0 {
 		// It's not our turn explicitly to sign, delay it a bit
-		wiggle := time.Duration(len(snap.Signers)/2+1) * wiggleTime
-		delay += time.Duration(rand.Int63n(int64(wiggle)))
+		wiggleMax := time.Duration(len(snap.Signers)/2) * wiggleTime
+		wiggleRand := time.Duration(rand.Int63n(int64(wiggleMax)))
+		delay += wiggleTime + wiggleRand
 
-		log.Trace("Out-of-turn signing requested", "wiggle", common.PrettyDuration(wiggle))
+		log.Debug("Out-of-turn signing requested", "wiggle rand ", common.PrettyDuration(wiggleRand),
+			"delay", delay)
 	}
 	// Sign all the things!
 	sighash, err := signFn(accounts.Account{Address: signer}, accounts.MimetypeClique, CliqueRLP(header))
