@@ -20,13 +20,14 @@ package clique
 import (
 	"bytes"
 	"errors"
-	"github.com/holiman/uint256"
 	"io"
 	"math/big"
 	"math/rand"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/holiman/uint256"
 
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
@@ -789,7 +790,8 @@ func (c *Clique) ElectCanonical(chain consensus.ChainReader, currentTD, proposed
 	// withstanding whatever the EIP-255 initial Clique spec says).
 	// In practice, the status quo is/was that the shorter segment is
 	// preferred.
-	if c.config.EIP3436Transition == nil || c.config.EIP3436Transition.Cmp(current.Number) > 0 {
+	if c.config.DisableEIP3436 {
+		log.Warn("Skipping EIP3436 Fork resolution! Your config may be incorrect!")
 		return false, nil
 	}
 
@@ -873,5 +875,3 @@ func (c *Clique) Eip3436Rule4(current, proposed *types.Header) (acceptProposed b
 	// Boolean should be defined truthy where proposed hash is less than current.
 	return proposedN.Lt(currentN), nil
 }
-
-

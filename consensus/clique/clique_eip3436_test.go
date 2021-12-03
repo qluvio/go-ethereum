@@ -73,14 +73,14 @@ type cliqueEIP3436TestCase struct {
 
 var cliqueEIP3436TestPeriod = uint64(1)
 var cliqueConfigEIP3436 = &params.CliqueConfig{
-	Period:            cliqueEIP3436TestPeriod,
-	Epoch:             0,
-	// EIP3436Transition: big.NewInt(0),
+	Period: cliqueEIP3436TestPeriod,
+	Epoch:  0,
+	//DisableEIP3436: false,
 }
 var cliqueConfigNoEIP3436 = &params.CliqueConfig{
-	Period:            cliqueEIP3436TestPeriod,
-	Epoch:             0,
-	// EIP3436Transition: nil,
+	Period:         cliqueEIP3436TestPeriod,
+	Epoch:          0,
+	DisableEIP3436: true,
 }
 
 func TestCliqueEIP3436_Scenario1_positive(t *testing.T) {
