@@ -383,7 +383,7 @@ func testCliqueEIP3436(t *testing.T, testConfig cliqueEIP3436TestCase) {
 	genesisBlock := genesis.MustCommit(db)
 
 	// Create a pristine blockchain with the genesis injected
-	chain, err := core.NewBlockChain(db, nil, &chainConfig, engine, vm.Config{}, nil)
+	chain, err := core.NewBlockChain(db, nil, &chainConfig, engine, vm.Config{}, nil, nil)
 	if err != nil {
 		t.Errorf("failed to create test chain: %v", err)
 		return

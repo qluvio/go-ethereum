@@ -334,8 +334,8 @@ func TestClique_EIP3436_Scenario1(t *testing.T) {
 		cliquePeriod := uint64(1)
 		config.Ethash = nil
 		config.Clique = &params.CliqueConfig{
-			Period:            cliquePeriod,
-			Epoch:             0,
+			Period: cliquePeriod,
+			Epoch:  0,
 			// EIP3436Transition: big.NewInt(0), // TODO: pull this out at add negative test cases (showing that w/o EIP-3436 expectations fail).
 		}
 		engine := New(config.Clique, db)
@@ -360,7 +360,6 @@ func TestClique_EIP3436_Scenario1(t *testing.T) {
 		}
 		t.Logf("SORTED SIGNERS:\n%s\n", logSortedSigners)
 
-
 		// Create the genesis block with the initial set of signerAddressesSorted
 		genesis := &core.Genesis{
 			ExtraData: make([]byte, extraVanity+common.AddressLength*len(signerAddressesSorted)+extraSeal),
@@ -373,7 +372,7 @@ func TestClique_EIP3436_Scenario1(t *testing.T) {
 		genesisBlock := genesis.MustCommit(db)
 
 		// Create a pristine blockchain with the genesis injected
-		chain, err := core.NewBlockChain(db, nil, &config, engine, vm.Config{}, nil)
+		chain, err := core.NewBlockChain(db, nil, &config, engine, vm.Config{}, nil, nil)
 		if err != nil {
 			t.Errorf("test %d: failed to create test chain: %v", ii, err)
 			continue
