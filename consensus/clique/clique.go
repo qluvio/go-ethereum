@@ -50,7 +50,7 @@ const (
 	inmemorySnapshots  = 128  // Number of recent vote snapshots to keep in memory
 	inmemorySignatures = 4096 // Number of recent block signatures to keep in memory
 
-	wiggleTime = 2 * time.Second // Random delay (per signer) to allow concurrent signers
+	wiggleTime = 500 // Random delay (per signer) to allow concurrent signers in millisecond
 )
 
 // Clique proof-of-authority protocol constants.
@@ -193,6 +193,9 @@ func New(config *params.CliqueConfig, db ethdb.Database) *Clique {
 	conf := *config
 	if conf.Epoch == 0 {
 		conf.Epoch = epochLength
+	}
+	if conf.SignerRandomDelay == 0 {
+		conf.SignerRandomDelay = wiggleTime
 	}
 	// Allocate the snapshot caches and create the engine
 	recents, _ := lru.NewARC(inmemorySnapshots)
@@ -576,6 +579,10 @@ func (c *Clique) FinalizeAndAssemble(chain consensus.ChainHeaderReader, header *
 	// Finalize block
 	c.Finalize(chain, header, state, txs, uncles)
 
+	log.Debug("New block assembled for sealing", "block_number", header.Number.String(),
+		"signer", header.Coinbase.String(),
+		"block_hash", header.TxHash.String(),
+		"total_txs", len(txs))
 	// Assemble and return the final block for sealing
 	return types.NewBlock(header, txs, nil, receipts, trie.NewStackTrie(nil)), nil
 }
@@ -630,8 +637,8 @@ func (c *Clique) Seal(chain consensus.ChainHeaderReader, block *types.Block, res
 	delay := time.Unix(int64(header.Time), 0).Sub(time.Now()) // nolint: gosimple
 	if header.Difficulty.Cmp(diffNoTurn) == 0 {
 		// It's not our turn explicitly to sign, delay it a bit
-		wiggle := time.Duration(len(snap.Signers)/2+1) * wiggleTime
-		delay += time.Duration(rand.Int63n(int64(wiggle)))
+		wiggle := uint64(len(snap.Signers)/2+1) * c.config.SignerRandomDelay
+		delay += time.Duration(rand.Int63n(int64(wiggle))) * time.Millisecond
 
 		log.Trace("Out-of-turn signing requested", "wiggle", common.PrettyDuration(wiggle))
 	}
