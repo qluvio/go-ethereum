@@ -639,6 +639,8 @@ func (c *Clique) Seal(chain consensus.ChainHeaderReader, block *types.Block, res
 	delay := time.Unix(int64(header.Time), 0).Sub(time.Now()) // nolint: gosimple
 	if header.Difficulty.Cmp(diffNoTurn) == 0 {
 		// It's not our turn explicitly to sign, delay it a bit
+		delay += time.Duration(c.config.OutOfTurnMinDelay) * time.Millisecond
+		// Randomize the delay so that multiple out-of-turn signers are more likely to be strongly staggered
 		wiggle := time.Duration(uint64(len(snap.Signers)/2+1)*c.config.SignerRandomDelay) * time.Millisecond
 		delay += time.Duration(rand.Int63n(int64(wiggle)))
 
