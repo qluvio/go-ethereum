@@ -27,7 +27,7 @@ As such, it is reasonable to gradually apply (genesis) config changes across the
 In order to understand the changes, it is helpful to understand a bit about how the clique config works:
 
 - Every validator is part of the 'clique', and _any_ block that is created by it is considered a valid block
-- There is a concept of a block being "in-turn", which means that block `n` should ideally be created by validator `len(validators) % n`. This is implemented by giving in-turn blocks a higher 'mining weight' than others.
+- There is a concept of a block being "in-turn", which means that block `n` should ideally be created by validator `n % len(validators)`. This is implemented by giving in-turn blocks a higher 'mining weight' than others.
 - If a block time is set, a validator will wait until the block time has passed before trying to publish another block.
 
 The things that we made configurable are:
