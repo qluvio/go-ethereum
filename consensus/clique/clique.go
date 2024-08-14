@@ -50,7 +50,7 @@ const (
 	inmemorySnapshots  = 128  // Number of recent vote snapshots to keep in memory
 	inmemorySignatures = 4096 // Number of recent block signatures to keep in memory
 
-	wiggleTime = 500 * time.Millisecond // Random delay (per signer) to allow concurrent signers
+	wiggleTime = 500 // Random delay (per signer) to allow concurrent signers in millisecond
 )
 
 // Clique proof-of-authority protocol constants.
@@ -194,6 +194,9 @@ func New(config *params.CliqueConfig, db ethdb.Database) *Clique {
 	if conf.Epoch == 0 {
 		conf.Epoch = epochLength
 	}
+	if conf.SignerRandomDelay == 0 {
+		conf.SignerRandomDelay = wiggleTime
+	}
 	// Allocate the snapshot caches and create the engine
 	recents, _ := lru.NewARC(inmemorySnapshots)
 	signatures, _ := lru.NewARC(inmemorySignatures)
@@ -210,7 +213,12 @@ func New(config *params.CliqueConfig, db ethdb.Database) *Clique {
 // Author implements consensus.Engine, returning the Ethereum address recovered
 // from the signature in the header's extra-data section.
 func (c *Clique) Author(header *types.Header) (common.Address, error) {
-	return ecrecover(header, c.signatures)
+	signer, err := ecrecover(header, c.signatures)
+	if err != nil {
+		return common.Address{}, err
+	}
+	log.Debug("signer_info", "block_number", header.Number.String(), "block_hash", header.TxHash.String(), "signer", signer.String())
+	return signer, nil
 }
 
 // VerifyHeader checks whether a header conforms to the consensus rules.
@@ -600,10 +608,11 @@ func (c *Clique) Seal(chain consensus.ChainHeaderReader, block *types.Block, res
 	if number == 0 {
 		return errUnknownBlock
 	}
-	// For 0-period chains, refuse to seal empty blocks (no reward but would spin sealing)
-	if c.config.Period == 0 && len(block.Transactions()) == 0 {
+	// refuse to seal empty blocks (no reward but would spin sealing)
+	if len(block.Transactions()) == 0 {
 		return errors.New("sealing paused while waiting for transactions")
 	}
+
 	// Don't hold the signer fields for the entire sealing procedure
 	c.lock.RLock()
 	signer, signFn := c.signer, c.signFn
@@ -630,7 +639,9 @@ func (c *Clique) Seal(chain consensus.ChainHeaderReader, block *types.Block, res
 	delay := time.Unix(int64(header.Time), 0).Sub(time.Now()) // nolint: gosimple
 	if header.Difficulty.Cmp(diffNoTurn) == 0 {
 		// It's not our turn explicitly to sign, delay it a bit
-		wiggle := time.Duration(len(snap.Signers)/2+1) * wiggleTime
+		delay += time.Duration(c.config.OutOfTurnMinDelay) * time.Millisecond
+		// Randomize the delay so that multiple out-of-turn signers are more likely to be strongly staggered
+		wiggle := time.Duration(uint64(len(snap.Signers)/2+1)*c.config.SignerRandomDelay) * time.Millisecond
 		delay += time.Duration(rand.Int63n(int64(wiggle)))
 
 		log.Trace("Out-of-turn signing requested", "wiggle", common.PrettyDuration(wiggle))
@@ -643,6 +654,7 @@ func (c *Clique) Seal(chain consensus.ChainHeaderReader, block *types.Block, res
 	copy(header.Extra[len(header.Extra)-extraSeal:], sighash)
 	// Wait until sealing is terminated or delay timeout.
 	log.Trace("Waiting for slot to sign and propagate", "delay", common.PrettyDuration(delay))
+	log.Debug("signer_info", "block_number", header.Number.String(), "block_hash", header.TxHash.String(), "signer", signer.String())
 	go func() {
 		select {
 		case <-stop:
