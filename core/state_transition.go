@@ -17,10 +17,7 @@
 package core
 
 import (
-	"encoding/hex"
-	"errors"
 	"fmt"
-	"github.com/ethereum/go-ethereum/log"
 	"math"
 	"math/big"
 
@@ -278,6 +275,13 @@ func (st *StateTransition) preCheck() error {
 // However if any consensus issue encountered, return the error directly with
 // nil evm execution result.
 func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
+
+	// prevent upfront forbidden functions in current contracts although
+	// not strictly required since this is also be done in EVM.Call
+	if err := vm.Forbid(st.data); err != nil {
+		return nil, err
+	}
+
 	// First check this message satisfies all consensus rules before
 	// applying the message. The rules include these clauses
 	//
@@ -306,12 +310,6 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 		rules            = st.evm.ChainConfig().Rules(st.evm.Context.BlockNumber, st.evm.Context.Random != nil)
 		contractCreation = msg.To() == nil
 	)
-
-	// forbid functions in current contracts
-	if len(st.data) == 4 && hex.EncodeToString(st.data) == "b8ff1dba" {
-		log.Warn("interdicting", "b8ff1dba", "setAccessRights()")
-		return nil, errors.New("call to b8ff1dba : setAccessRights()")
-	}
 
 	// Check clauses 4-5, subtract intrinsic gas if everything is correct
 	gas, err := IntrinsicGas(st.data, st.msg.AccessList(), contractCreation, rules.IsHomestead, rules.IsIstanbul)
